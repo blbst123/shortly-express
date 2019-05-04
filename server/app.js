@@ -20,23 +20,26 @@ app.use(Auth.createSession);
 
 
 
-app.get('/',
-  (req, res) => {
-    if (req.session.user === undefined) {
-      res.redirect('/login');
-    }
-    else {
-      res.render('index');
-    }
-  });
-
-app.get('/create',
-  (req, res) => {
+app.get('/', (req, res) => {
+  if (req.session.user === undefined) {
+    res.redirect('/login');
+  } else {
     res.render('index');
-  });
+  }
+});
 
-app.get('/links',
-  (req, res, next) => {
+app.get('/create', (req, res) => {
+  if (req.session.user === undefined) {
+    res.redirect('/login');
+  } else {
+    res.render('index');
+  }
+});
+
+app.get('/links', (req, res, next) => {
+  if (req.session.user === undefined) {
+    res.redirect('/login');
+  } else {
     models.Links.getAll()
       .then(links => {
         res.status(200).send(links);
@@ -44,43 +47,43 @@ app.get('/links',
       .error(error => {
         res.status(500).send(error);
       });
-  });
+  }
+});
 
-app.post('/links',
-  (req, res, next) => {
-    var url = req.body.url;
-    if (!models.Links.isValidUrl(url)) {
-      // send back a 404 if link is not valid
-      return res.sendStatus(404);
-    }
+app.post('/links', (req, res, next) => {
+  var url = req.body.url;
+  if (!models.Links.isValidUrl(url)) {
+    // send back a 404 if link is not valid
+    return res.sendStatus(404);
+  }
 
-    return models.Links.get({ url })
-      .then(link => {
-        if (link) {
-          throw link;
-        }
-        return models.Links.getUrlTitle(url);
-      })
-      .then(title => {
-        return models.Links.create({
-          url: url,
-          title: title,
-          baseUrl: req.headers.origin
-        });
-      })
-      .then(results => {
-        return models.Links.get({ id: results.insertId });
-      })
-      .then(link => {
+  return models.Links.get({ url })
+    .then(link => {
+      if (link) {
         throw link;
-      })
-      .error(error => {
-        res.status(500).send(error);
-      })
-      .catch(link => {
-        res.status(200).send(link);
+      }
+      return models.Links.getUrlTitle(url);
+    })
+    .then(title => {
+      return models.Links.create({
+        url: url,
+        title: title,
+        baseUrl: req.headers.origin
       });
-  });
+    })
+    .then(results => {
+      return models.Links.get({ id: results.insertId });
+    })
+    .then(link => {
+      throw link;
+    })
+    .error(error => {
+      res.status(500).send(error);
+    })
+    .catch(link => {
+      res.status(200).send(link);
+    });
+});
 
 /************************************************************/
 // Write your authentication routes here
@@ -124,25 +127,22 @@ app.post('/signup', (req, res, next) => {
   checkIfUsernameExist.then(function (result) {
     if (result === undefined) {
       return models.Users.create(options);
-    } else {
-      throw 'username already exists';
     }
   })
     .then((user) => {
       models.Sessions.update({ id: req.session.id }, { userId: user.insertId });
     })
-    .catch(err => {
-      res.redirect('/signup');
-      console.log(err);
-    })
     .then(() => {
       res.redirect('/');
+      next();
+    })
+    .catch(err => {
+      res.redirect('/signup');
       next();
     });
 });
 
 app.get('/logout', (req, res, next) => {
-  console.log(req.session);
   models.Sessions.delete({ id: req.session.id })
     .then(() => {
       res.clearCookie('shortlyid');
@@ -168,10 +168,8 @@ app.get('/logout', (req, res, next) => {
 /************************************************************/
 
 app.get('/:code', (req, res, next) => {
-
   return models.Links.get({ code: req.params.code })
     .tap(link => {
-
       if (!link) {
         throw new Error('Link does not exist');
       }
