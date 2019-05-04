@@ -5,6 +5,7 @@ const partials = require('express-partials');
 const bodyParser = require('body-parser');
 const Auth = require('./middleware/auth');
 const models = require('./models');
+const cookieParser = require('./middleware/cookieParser');
 
 const app = express();
 
@@ -14,13 +15,19 @@ app.use(partials());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, '../public')));
+app.use(cookieParser);
 app.use(Auth.createSession);
 
 
 
 app.get('/',
   (req, res) => {
-    res.render('index');
+    if (req.session.user === undefined) {
+      res.redirect('/login');
+    }
+    else {
+      res.render('index');
+    }
   });
 
 app.get('/create',
@@ -121,15 +128,38 @@ app.post('/signup', (req, res, next) => {
       throw 'username already exists';
     }
   })
-    .then(() => {
-      res.redirect('/');
-      next();
+    .then((user) => {
+      models.Sessions.update({ id: req.session.id }, { userId: user.insertId });
     })
     .catch(err => {
       res.redirect('/signup');
       console.log(err);
+    })
+    .then(() => {
+      res.redirect('/');
+      next();
     });
 });
+
+app.get('/logout', (req, res, next) => {
+  console.log(req.session);
+  models.Sessions.delete({ id: req.session.id })
+    .then(() => {
+      res.clearCookie('shortlyid');
+      next();
+    });
+});
+
+
+// app.post('/logout', (req, res, next) => {
+//   console.log("HERE");
+//   console.log(req.session.id);
+//   models.Sessions.delete({id: req.session.id})
+//   .then(() => {
+//     res.clearCookie('shortlyid');
+//     next();
+//   });
+// });
 
 /************************************************************/
 // Handle the code parameter route last - if all other routes fail
