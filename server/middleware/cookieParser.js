@@ -1,8 +1,15 @@
+const models = require('../models');
+
 const parseCookies = (req, res, next) => {
   if (req.headers.cookie !== undefined) {
-    console.log(req.headers.cookie.substring(10));
+    var cookiesObj = req.headers.cookie.split(';');
+
+    for (let i = 0; i < cookiesObj.length; i++) {
+      let tempCookie = cookiesObj[i].split('=').map(item => item.trim());
+      req.cookies[tempCookie[0]] = tempCookie[1];
+    }
+    
   }
-  // req.cookies = {shortlyid: req.headers.cookie.substring(10)};
   next();
 };
 
